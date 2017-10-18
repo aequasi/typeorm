@@ -15,6 +15,12 @@ TypeORM可以帮助开发者专注于业务逻辑，而不用过于担心数据�
 
 TypeORM参考了很多其他优秀ORM的实现, 比如 [Hibernate](http://hibernate.org/orm/), [Doctrine](http://www.doctrine-project.org/) 和 [Entity Framework](https://www.asp.net/entity-framework).
 
+## Note
+
+This documentation is not up-to-date. 
+See latest english documentation on the [website](http://typeorm.io).
+Contributions are welcomed.
+
 ## 安装
 
 1. 安装TypeORM:
@@ -75,7 +81,7 @@ TypeORM在Node.JS 4.0或以上版本上测试通过。
 
 TypeORM可以在浏览器环境中工作，并且试验性的支持WebSQL
 如果在浏览器环境中使用TypeORM需要使用 `npm i typeorm-browser` 来替代 `typeorm`.
-更多相关可以参考[这里](https://typeorm.github.io/usage-in-browser.html)和[这个例子](https://github.com/typeorm/browser-example).
+更多相关可以参考[这里](https://typeorm.io)和[这个例子](https://github.com/typeorm/browser-example).
 
 ## 快速开始
 
@@ -89,7 +95,7 @@ export class Photo {
     id: number;
     name: string;
     description: string;
-    fileName: string;
+    filename: string;
     views: number;
 }
 ```
@@ -106,7 +112,7 @@ export class Photo {
     id: number;
     name: string;
     description: string;
-    fileName: string;
+    filename: string;
     views: number;
     isPublished: boolean;
 }
@@ -134,7 +140,7 @@ export class Photo {
     description: string;
 
     @Column()
-    fileName: string;
+    filename: string;
 
     @Column()
     views: number;
@@ -165,7 +171,7 @@ export class Photo {
     description: string;
 
     @Column()
-    fileName: string;
+    filename: string;
 
     @Column()
     views: number;
@@ -175,36 +181,6 @@ export class Photo {
 }
 ```
    
-### 创建自增长/自生成/顺序化的列
-
-如果你想创建自增长/自生成/顺序化的列，需要把column的type改成integer并且给主键列加上一个属性`{ generated: true }`
-
-```typescript
-import {Entity, Column, PrimaryColumn} from "typeorm";
-
-@Entity()
-export class Photo {
-
-    @PrimaryColumn("int", { generated: true })
-    id: number;
-
-    @Column()
-    name: string;
-
-    @Column()
-    description: string;
-
-    @Column()
-    fileName: string;
-
-    @Column()
-    views: number;
-
-    @Column()
-    isPublished: boolean;
-}
-```
-
 ### 使用 `@PrimaryGeneratedColumn` 装饰器
 
 现在photo表的id可能自动生成自动增长，不过还是有点麻烦，这个一个很常见的功能，所以有一个专门的装饰器`@PrimaryGeneratedColumn`来实现相同的功能。
@@ -225,7 +201,7 @@ export class Photo {
     description: string;
 
     @Column()
-    fileName: string;
+    filename: string;
 
     @Column()
     views: number;
@@ -258,7 +234,7 @@ export class Photo {
     description: string;
 
     @Column()
-    fileName: string;
+    filename: string;
 
     @Column("int")
     views: number;
@@ -289,7 +265,7 @@ createConnection({
     entities: [
         Photo
     ],
-    autoSchemaSync: true,
+    synchronize: true,
 }).then(connection => {
     // 这里可以写实体操作相关的代码 
 }).catch(error => console.log(error));
@@ -301,7 +277,7 @@ mysql, mariadb, postgres, sqlite, mssql or oracle.
 
 把Photo实体加到数据连接的实体列表中，所有需要在这个连接下使用的实体都必须加到这个列表中。
 
-`autoSchemaSync`选项可以在应用启动时确保你的实体和数据库保持同步。 
+`synchronize`选项可以在应用启动时确保你的实体和数据库保持同步。 
 
 ### 引用目录下的所有实体
 
@@ -323,7 +299,7 @@ createConnection({
     entities: [
         __dirname + "/entity/*.js"
     ],
-    autoSchemaSync: true,
+    synchronize: true,
 }).then(connection => {
     // here you can start to work with your entities
 }).catch(error => console.log(error));
@@ -362,8 +338,8 @@ createConnection(/*...*/).then(connection => {
     photo.views = 1;
     photo.isPublished = true;
 
-    connection.entityManager
-            .persist(photo)
+    connection.manager
+            .save(photo)
             .then(photo => {
                 console.log("Photo has been saved");
             });
@@ -388,7 +364,7 @@ createConnection(/*...*/).then(async connection => {
     photo.views = 1;
     photo.isPublished = true;
 
-    await connection.entityManager.persist(photo);
+    await connection.manager.save(photo);
     console.log("Photo has been saved");
 
 }).catch(error => console.log(error));
@@ -405,7 +381,7 @@ import {Photo} from "./entity/Photo";
 createConnection(/*...*/).then(async connection => {
 
     /*...*/
-    let savedPhotos = await connection.entityManager.find(Photo);
+    let savedPhotos = await connection.manager.find(Photo);
     console.log("All photos from the db: ", savedPhotos);
 
 }).catch(error => console.log(error));
@@ -433,7 +409,7 @@ createConnection(/*...*/).then(async connection => {
 
     let photoRepository = connection.getRepository(Photo);
 
-    await photoRepository.persist(photo);
+    await photoRepository.save(photo);
     console.log("Photo has been saved");
 
     let savedPhotos = await photoRepository.find();
@@ -488,7 +464,7 @@ createConnection(/*...*/).then(async connection => {
     /*...*/
     let photoToUpdate = await photoRepository.findOneById(1);
     photoToUpdate.name = "Me, my friends and polar bears";
-    await photoRepository.persist(photoToUpdate);
+    await photoRepository.save(photoToUpdate);
 
 }).catch(error => console.log(error));
 ```
@@ -607,10 +583,10 @@ createConnection(/*...*/).then(async connection => {
     let metadataRepository = connection.getRepository(PhotoMetadata);
 
     // 先来把photo存到数据库
-    await photoRepository.persist(photo);
+    await photoRepository.save(photo);
 
     // photo存完了，再存下photo的元信息
-    await metadataRepository.persist(metadata);
+    await metadataRepository.save(metadata);
 
     // 搞定
     console.log("metadata is saved, and relation between metadata and photo is created in the database too");
@@ -760,7 +736,7 @@ createConnection(options).then(async connection => {
     let photoRepository = connection.getRepository(Photo);
 
     // 存photo
-    await photoRepository.persist(photo);
+    await photoRepository.save(photo);
     // photo metadata也自动存上了
     console.log("Photo is saved, photo metadata is saved too.")
 
@@ -863,7 +839,7 @@ export class Album {
         cascadeRemove: true  // 在移除Album时，会自动移除相册里的Photo
     })
     @JoinTable()
-    photos: Photo[] = []; // 初始化个Photo数组
+    photos: Photo[];
 }
 ```
   
@@ -880,7 +856,7 @@ export class Photo {
         cascadeUpdate: true, // 在更新Album时，会自动更新相册里的Photo 
         cascadeRemove: true  // 在移除Album时，会自动移除相册里的Photo
     })
-    albums: Album[] = []; // 初始化个Album数组
+    albums: Album[];
 }
 ```
 
@@ -921,20 +897,20 @@ let photo1 = new Photo();
 photo1.name = "Me and Bears";
 photo1.description = "I am near polar bears";
 photo1.filename = "photo-with-bears.jpg";
-photo1.albums.push(album1);
+photo1.albums = [album1];
 
 let photo2 = new Photo();
 photo2.name = "Me and Bears";
 photo2.description = "I am near polar bears";
 photo2.filename = "photo-with-bears.jpg";
-photo2.albums.push(album2);
+photo2.albums = [album2];
 
 // 获取Photo的repository
 let photoRepository = connection.getRepository(Photo);
 
 // 依次存储photos，由于cascade，albums也同样会自动存起来
-await photoRepository.persist(photo1);
-await photoRepository.persist(photo2);
+await photoRepository.save(photo1);
+await photoRepository.save(photo2);
 
 console.log("Both photos have been saved");
 ```
@@ -952,8 +928,8 @@ let photos = await photoRepository
     .where("photo.isPublished=true")
     .andWhere("(photo.name=:photoName OR photo.name=:bearName)")
     .orderBy("photo.id", "DESC")
-    .setFirstResult(5)
-    .setMaxResults(10)
+    .skip(5)
+    .take(10)
     .setParameters({ photoName: "My", bearName: "Mishka" })
     .getMany();
 ```
@@ -963,5 +939,3 @@ let photos = await photoRepository
 并且只会得到10个结果（分页每页个数决定的），
 所得结果是以id的倒序排序的，
 Photo的albums是左联接，photo的metadata是内联接。
-
-更多关于QueryBuilder可以查看[这里](https://typeorm.github.io/query-builder.html).

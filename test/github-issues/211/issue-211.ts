@@ -1,5 +1,5 @@
 import "reflect-metadata";
-import {createTestingConnections, closeTestingConnections, reloadTestingDatabases} from "../../utils/test-utils";
+import {closeTestingConnections, createTestingConnections, reloadTestingDatabases} from "../../utils/test-utils";
 import {Connection} from "../../../src/connection/Connection";
 import {Post} from "./entity/Post";
 
@@ -9,7 +9,7 @@ describe("github issues > #211 where in query issue", () => {
     before(async () => connections = await createTestingConnections({
         entities: [__dirname + "/entity/*{.js,.ts}"],
         schemaCreate: true,
-        dropSchemaOnConnection: true,
+        dropSchema: true,
     }));
     beforeEach(() => reloadTestingDatabases(connections));
     after(() => closeTestingConnections(connections));
@@ -20,17 +20,17 @@ describe("github issues > #211 where in query issue", () => {
             const post1 = new Post();
             post1.title = "post #" + i;
             post1.text = "about post";
-            await connection.entityManager.persist(post1);
+            await connection.manager.save(post1);
         }
 
-        const loadedPosts1 = await connection.entityManager
+        const loadedPosts1 = await connection.manager
             .createQueryBuilder(Post, "post")
             .where("post.id IN (:ids)", { ids: [1, 2, 3] })
             .getMany();
 
         loadedPosts1.length.should.be.equal(3);
 
-        const loadedPosts2 = await connection.entityManager
+        const loadedPosts2 = await connection.manager
             .createQueryBuilder(Post, "post")
             .where("post.text = :text", { text: "about post" })
             .andWhere("post.title IN (:titles)", { titles: ["post #1", "post #2", "post #3"] })

@@ -1,4 +1,3 @@
-import {RelationTypes} from "../../metadata/types/RelationTypes";
 import {getMetadataArgsStorage} from "../../index";
 import {ObjectType} from "../../common/ObjectType";
 import {RelationMetadataArgs} from "../../metadata-args/RelationMetadataArgs";
@@ -10,7 +9,7 @@ import {RelationOptions} from "../options/RelationOptions";
  * One-to-many relation allows to create type of relation when Entity2 can have multiple instances of Entity1.
  * Entity1 have only one Entity2. Entity1 is an owner of the relationship, and storages Entity2 id on its own side.
  */
-export function OneToMany<T>(typeFunction: (type?: any) => ObjectType<T>, inverseSide: string|((object: T) => any), options?: { cascadeInsert?: boolean, cascadeUpdate?: boolean, lazy?: boolean }): Function {
+export function OneToMany<T>(typeFunction: (type?: any) => ObjectType<T>, inverseSide: string|((object: T) => any), options?: { cascadeInsert?: boolean, cascadeUpdate?: boolean, lazy?: boolean, eager?: boolean }): Function {
     return function (object: Object, propertyName: string) {
         if (!options) options = {} as RelationOptions;
 
@@ -27,12 +26,12 @@ export function OneToMany<T>(typeFunction: (type?: any) => ObjectType<T>, invers
             propertyName: propertyName,
             // propertyType: reflectedType,
             isLazy: isLazy,
-            relationType: RelationTypes.ONE_TO_MANY,
+            relationType: "one-to-many",
             type: typeFunction,
             inverseSideProperty: inverseSide,
             options: options
         };
-        getMetadataArgsStorage().relations.add(args);
+        getMetadataArgsStorage().relations.push(args);
     };
 }
 

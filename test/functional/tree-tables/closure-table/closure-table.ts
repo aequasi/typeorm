@@ -1,8 +1,9 @@
 import "reflect-metadata";
 import {Category} from "./entity/Category";
 import {Connection} from "../../../../src/connection/Connection";
-import {createTestingConnections, reloadTestingDatabases, closeTestingConnections} from "../../../utils/test-utils";
+import {closeTestingConnections, createTestingConnections, reloadTestingDatabases} from "../../../utils/test-utils";
 
+// fix closure tables later
 describe("closure-table", () => {
 
     let connections: Connection[];
@@ -36,11 +37,11 @@ describe("closure-table", () => {
         // todo: this case is not working:
         // c1.childCategories = [c11, c12];
 
-        await categoryRepository.persist(a1);
-        await categoryRepository.persist(b1);
-        await categoryRepository.persist(c1);
-        await categoryRepository.persist(c11);
-        await categoryRepository.persist(c12);
+        await categoryRepository.save(a1);
+        await categoryRepository.save(b1);
+        await categoryRepository.save(c1);
+        await categoryRepository.save(c11);
+        await categoryRepository.save(c12);
 
         const roots = await categoryRepository.findRoots();
         roots.should.be.eql([
@@ -100,16 +101,17 @@ describe("closure-table", () => {
         const c12 = new Category();
         c12.name = "c12";
 
-        c1.childCategories = [c11];
+        await categoryRepository.save(a1);
+        await categoryRepository.save(b1);
+        await categoryRepository.save(c1);
 
-        await categoryRepository.persist(a1);
-        await categoryRepository.persist(b1);
-        await categoryRepository.persist(c1);
+        c1.childCategories = [c11];
+        await categoryRepository.save(c1);
 
         c1.childCategories.push(c12);
-        await categoryRepository.persist(c1);
-        // await categoryRepository.persist(c11);
-        // await categoryRepository.persist(c12);
+        await categoryRepository.save(c1);
+        // await categoryRepository.save(c11);
+        // await categoryRepository.save(c12);
 
         const roots = await categoryRepository.findRoots();
         roots.should.be.eql([
@@ -169,14 +171,15 @@ describe("closure-table", () => {
         const c12 = new Category();
         c12.name = "c12";
 
-        c1.childCategories = [c11];
+        await categoryRepository.save(a1);
+        await categoryRepository.save(b1);
+        await categoryRepository.save(c1);
 
-        await categoryRepository.persist(a1);
-        await categoryRepository.persist(b1);
-        await categoryRepository.persist(c1);
+        c1.childCategories = [c11];
+        await categoryRepository.save(c1);
 
         c1.childCategories.push(c12);
-        await categoryRepository.persist(c1);
+        await categoryRepository.save(c1);
 
         const tree = await categoryRepository.findTrees();
         tree!.should.be.eql(

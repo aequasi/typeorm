@@ -1,5 +1,5 @@
 import "reflect-metadata";
-import {createTestingConnections, closeTestingConnections, reloadTestingDatabases} from "../../utils/test-utils";
+import {closeTestingConnections, createTestingConnections, reloadTestingDatabases} from "../../utils/test-utils";
 import {Connection} from "../../../src/connection/Connection";
 import {Post} from "./entity/Post";
 
@@ -9,7 +9,7 @@ describe("github issues > #219 FindOptions should be able to resolve null values
     before(async () => connections = await createTestingConnections({
         entities: [__dirname + "/entity/*{.js,.ts}"],
         schemaCreate: true,
-        dropSchemaOnConnection: true,
+        dropSchema: true,
     }));
     beforeEach(() => reloadTestingDatabases(connections));
     after(() => closeTestingConnections(connections));
@@ -21,28 +21,15 @@ describe("github issues > #219 FindOptions should be able to resolve null values
             const post1 = new Post();
             post1.title = "post #" + i;
             post1.text = i > 5 ? "about post" : null;
-            promises.push(connection.entityManager.persist(post1));
+            promises.push(connection.manager.save(post1));
         }
         await Promise.all(promises);
 
-        const postsWithoutText1 = await connection.entityManager.find(Post, { text: null });
+        const postsWithoutText1 = await connection.manager.find(Post, { where: { text: null } });
         postsWithoutText1.length.should.be.equal(5);
 
-        const postsWithText1 = await connection.entityManager.find(Post, { text: "about post" });
+        const postsWithText1 = await connection.manager.find(Post, { where: {  text: "about post" } });
         postsWithText1.length.should.be.equal(5);
-
-        // also should work if queried via complex FindOptions object
-        const postsWithoutText2 = await connection.entityManager.find(Post, {
-            alias: "post",
-            whereConditions: { "post.text": null }
-        });
-        postsWithoutText2.length.should.be.equal(5);
-
-        const postsWithText2 = await connection.entityManager.find(Post, {
-            alias: "post",
-            whereConditions: { "post.text": "about post" }
-        });
-        postsWithText2.length.should.be.equal(5);
 
     })));
 

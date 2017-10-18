@@ -1,3 +1,7 @@
+///<reference path="node_modules/@types/node/index.d.ts"/>
+///<reference path="node_modules/@types/chai/index.d.ts"/>
+///<reference path="node_modules/@types/mocha/index.d.ts"/>
+
 import {Gulpclass, Task, SequenceTask, MergedTask} from "gulpclass";
 
 const gulp = require("gulp");
@@ -15,6 +19,7 @@ const sourcemaps = require("gulp-sourcemaps");
 const istanbul = require("gulp-istanbul");
 const remapIstanbul = require("remap-istanbul/lib/gulpRemapIstanbul");
 const ts = require("gulp-typescript");
+const args = require("yargs").argv;
 
 @Gulpclass()
 export class Gulpfile {
@@ -22,6 +27,14 @@ export class Gulpfile {
     // -------------------------------------------------------------------------
     // General tasks
     // -------------------------------------------------------------------------
+
+    /**
+     * Creates a delay and resolves after 30 seconds.
+     */
+    @Task()
+    wait(cb: Function) {
+        setTimeout(() => cb(), 30000);
+    }
 
     /**
      * Cleans build folder.
@@ -37,7 +50,7 @@ export class Gulpfile {
     @Task()
     compile() {
         return gulp.src("package.json", { read: false })
-            .pipe(shell(["tsc"]));
+            .pipe(shell(["npm run compile"]));
     }
 
     // -------------------------------------------------------------------------
@@ -57,7 +70,8 @@ export class Gulpfile {
             "!./src/typeorm-model-shim.ts",
             "!./src/platform/PlatformTools.ts"
         ])
-            .pipe(gulp.dest("./build/browser/typeorm"));
+        .pipe(gulp.dest("./build/systemjs/typeorm"))
+        .pipe(gulp.dest("./build/browser/src"));
     }
 
     /**
@@ -67,7 +81,7 @@ export class Gulpfile {
     browserCopyMainBrowserFile() {
         return gulp.src("./package.json", { read: false })
             .pipe(file("typeorm.ts", `export * from "./typeorm/index";`))
-            .pipe(gulp.dest("./build/browser"));
+            .pipe(gulp.dest("./build/systemjs"));
     }
 
     /**
@@ -77,29 +91,48 @@ export class Gulpfile {
     browserCopyPlatformTools() {
         return gulp.src("./src/platform/BrowserPlatformTools.template")
             .pipe(rename("PlatformTools.ts"))
-            .pipe(gulp.dest("./build/browser/typeorm/platform"));
+            .pipe(gulp.dest("./build/systemjs/typeorm/platform"))
+            .pipe(gulp.dest("./build/browser/src/platform"));
     }
 
     /**
      * Runs files compilation of browser-specific source code.
      */
     @MergedTask()
-    browserCompile() {
+    browserCompileSystemJS() {
         const tsProject = ts.createProject("tsconfig.json", {
             outFile: "typeorm-browser.js",
             module: "system",
             "lib": ["es5", "es6", "dom"],
             typescript: require("typescript")
         });
-        const tsResult = gulp.src(["./build/browser/**/*.ts", "./node_modules/@types/**/*.ts"])
+        const tsResult = gulp.src(["./build/systemjs/**/*.ts", "./node_modules/reflect-metadata/**/*.d.ts", "./node_modules/@types/**/*.ts"])
             .pipe(sourcemaps.init())
             .pipe(tsProject());
 
         return [
-            // tsResult.dts.pipe(gulp.dest("./build/package")),
             tsResult.js
                 .pipe(sourcemaps.write(".", { sourceRoot: "", includeContent: true }))
                 .pipe(gulp.dest("./build/package"))
+        ];
+    }
+
+    @MergedTask()
+    browserCompile() {
+        const tsProject = ts.createProject("tsconfig.json", {
+            module: "es2015",
+            "lib": ["es5", "es6", "dom"],
+            typescript: require("typescript")
+        });
+        const tsResult = gulp.src(["./build/browser/src/**/*.ts", "./node_modules/reflect-metadata/**/*.d.ts", "./node_modules/@types/**/*.ts"])
+            .pipe(sourcemaps.init())
+            .pipe(tsProject());
+
+        return [
+            tsResult.dts.pipe(gulp.dest("./build/package/browser")),
+            tsResult.js
+                .pipe(sourcemaps.write(".", { sourceRoot: "", includeContent: true }))
+                .pipe(gulp.dest("./build/package/browser"))
         ];
     }
 
@@ -112,6 +145,13 @@ export class Gulpfile {
             .pipe(uglify())
             .pipe(rename("typeorm-browser.min.js"))
             .pipe(gulp.dest("./build/package"));
+    }
+
+    @Task()
+    browserClearPackageDirectory(cb: Function) {
+        return del([
+            "./build/systemjs/**"
+        ]);
     }
 
     // -------------------------------------------------------------------------
@@ -225,9 +265,10 @@ export class Gulpfile {
         return [
             "clean",
             ["browserCopySources", "browserCopyMainBrowserFile", "browserCopyPlatformTools"],
-            ["packageCompile", "browserCompile"],
+            ["packageCompile", "browserCompile", "browserCompileSystemJS"],
             ["packageMoveCompiledFiles", "browserUglify"],
             [
+                "browserClearPackageDirectory",
                 "packageClearPackageDirectory",
                 "packageReplaceReferences",
                 "packagePreparePackageFile",
@@ -292,6 +333,8 @@ export class Gulpfile {
 
         return gulp.src(["./build/compiled/test/**/*.js"])
             .pipe(mocha({
+                bail: true,
+                grep: !!args.grep ? new RegExp(args.grep) : undefined,
                 timeout: 15000
             }))
             .pipe(istanbul.writeReports());
@@ -300,15 +343,16 @@ export class Gulpfile {
     /**
      * Runs tests the quick way.
      */
-    @Task("ts-node-tests")
+    @Task()
     quickTests() {
         chai.should();
         chai.use(require("sinon-chai"));
         chai.use(require("chai-as-promised"));
 
-        return gulp.src(["./test/**/*.ts"])
+        return gulp.src(["./build/compiled/test/**/*.js"])
             .pipe(mocha({
-                timeout: 10000
+                bail: true,
+                timeout: 15000
             }));
     }
 
@@ -320,11 +364,38 @@ export class Gulpfile {
     }
 
     /**
-     * Compiles the code and runs tests.
+     * Compiles the code and runs tests + makes coverage report.
      */
     @SequenceTask()
     tests() {
-        return ["compile", "tslint", "coveragePost", "coverageRemap"];
+        return [
+            "compile",
+            "tslint",
+            "coveragePost",
+            "coverageRemap"
+        ];
+    }
+
+    /**
+     * Runs tests, but creates a small delay before running them to make sure to give time for docker containers to be initialized.
+     */
+    @SequenceTask("ci-tests")
+    ciTests() {
+        return [
+            "wait",
+            "compile",
+            "tslint",
+            "coveragePost",
+            "coverageRemap"
+        ];
+    }
+
+    /**
+     * Compiles the code and runs only mocha tests.
+     */
+    @SequenceTask()
+    mocha() {
+        return ["compile", "quickTests"];
     }
 
     // -------------------------------------------------------------------------
